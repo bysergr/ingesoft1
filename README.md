@@ -1,6 +1,6 @@
 # Bot de Importaciones en México
 
-![Logo del Proyecto](./logo.jpg)
+<img src="logo.jpg" alt="naurat_logo" width="200"/>
 
 ## Integrantes
 
