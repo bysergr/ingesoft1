@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from src.database import get_db
 from src.models import *
+from src.ai.crud import *
 
-from requests import Session
+from sqlalchemy.orm import Session
 from src.ai.schemas import *
 
 ai_router = APIRouter()
@@ -43,5 +44,16 @@ def get_user_conversation(user_email: str, db: Session = Depends(get_db)):
         conversation_list.append(message.message)
 
     return JSONResponse(content={"conversation": conversation_list}, status_code=200)
+
+
+@ai_router.get("/get_excel/")
+def get_excel(user_email: str, db: Session = Depends(get_db)):
+    user = db.query(Users).filter(Users.email == user_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    buffer = generate_excel(user_email=user_email, db=db)
+
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment;filename=products.xlsx"})
 
 
