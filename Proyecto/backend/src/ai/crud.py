@@ -68,7 +68,7 @@ def generate_excel(user_email, db: Session):
                 try:
                     if len(str(cell.value)) > max_length:
                         max_length = len(cell.value)
-                except:
+                except: 
                     pass
             adjusted_width = max_length + 2  
             worksheet.column_dimensions[column].width = adjusted_width

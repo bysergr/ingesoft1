@@ -1,19 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from src.database import get_db
-from src.models import *
-from src.ai.crud import *
+from src.models import Users, Messages
+from src.ai.crud import generate_excel
 
 from sqlalchemy.orm import Session
-from src.ai.schemas import *
+from src.ai.schemas import GoogleLogin
 
 ai_router = APIRouter()
 
+
 @ai_router.post("/google_login/")
 def google_login(user_data: GoogleLogin, db: Session = Depends(get_db)):
+
+    
     email = user_data.email
 
-    user_record = db.query(Users).filter(Users.email == email).first()
+    user_record = db.query(Users).filter(Users.email == email).first() 
     if not user_record:
         user_record = Users(email=email)
         db.add(user_record)
