@@ -12,8 +12,8 @@ export const AsideRight = async () => {
         <Image
           src="/unal.svg"
           alt="Expert"
-          width={230}
-          height={230}
+          width={213}
+          height={94.3}
           className="mx-auto mt-3"
         />
         <div className="ml-2 mt-8 space-y-4">
@@ -58,7 +58,12 @@ export async function AsideLeft() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Image src="/favicon.ico" alt="Naurat logo" width={90} height={90} />
+          <Image
+            src="/favicon.ico"
+            alt="Naurat logo"
+            width={110}
+            height={110}
+          />
         </a>
 
         <h3 className="font-bold text-2xl">

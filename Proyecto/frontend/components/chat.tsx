@@ -27,6 +27,12 @@ interface MessageBackend {
   lang?: "es" | "en";
 }
 
+const initialMessage: Message = {
+  owner: "bot",
+  message:
+    "Hello! I'm your Import Bot, ready to assist you in determining tariffs, taxes, and necessary certifications for your imports. Just provide the product you want to import, its country of origin, and an estimated value. No worries if you’re missing some details—we’ll make the most of the information you have!",
+};
+
 export const Chat = ({ email, name }: { email?: string; name?: string }) => {
   const [userID, setUserID] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,14 +63,6 @@ export const Chat = ({ email, name }: { email?: string; name?: string }) => {
     if (!email) {
       setUserID(getRandomNumberInRange(10 ** 6, 10 ** 7).toString());
     }
-
-    setMessages([
-      {
-        owner: "bot",
-        message:
-          "Hello! I'm your Import Bot, ready to assist you in determining tariffs, taxes, and necessary certifications for your imports. Just provide the product you want to import, its country of origin, and an estimated value. No worries if you’re missing some details—we’ll make the most of the information you have!",
-      },
-    ]);
 
     if (email) {
       fetch(
@@ -229,6 +227,7 @@ export const Chat = ({ email, name }: { email?: string; name?: string }) => {
     <div className="h-[calc(100vh-77px)] m-0 p-0 flex flex-col justify-between items-center gap-y-4">
       <div className="overflow-y-scroll w-full h-full" ref={messagesEndRef}>
         <ul className="sm:w-[calc(80%+22px)] lg:w-[calc(70%+22px)] flex flex-col gap-y-2 mx-4 sm:mx-auto mt-8">
+          <BotMessage message={initialMessage.message} />
           {messages.map((message, index) => {
             if (message.owner === "user") {
               return (
