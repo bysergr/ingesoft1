@@ -24,7 +24,9 @@ export function BotMessage({ message }: { message: string }) {
   return (
     <div className="w-fit lg:max-w-[80%]">
       <div className="bg-white py-2 px-4 border-neutral-200 border rounded-2xl">
-        <label className="font-semibold tracking-wider text-[10px]">NBot</label>
+        <label className="font-semibold tracking-wider text-[10px]">
+          NauTrade
+        </label>
         <div
           className="text-wrap break-words markdown"
           dangerouslySetInnerHTML={{ __html: marked(message) }}

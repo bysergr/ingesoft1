@@ -8,7 +8,7 @@ const interFont = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Bot - Naurat",
+  title: "NauTrade - Naurat",
   description: "A bot created as a project for the IngeSoft class",
 };
 
