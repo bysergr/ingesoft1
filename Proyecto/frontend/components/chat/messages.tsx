@@ -25,7 +25,7 @@ export function BotMessage({ message }: { message: string }) {
     <div className="w-fit lg:max-w-[80%]">
       <div className="bg-white py-2 px-4 border-neutral-200 border rounded-2xl">
         <label className="font-semibold tracking-wider text-[10px]">
-          NauTrade
+          NaurBotMX
         </label>
         <div
           className="text-wrap break-words markdown"

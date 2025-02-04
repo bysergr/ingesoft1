@@ -23,17 +23,15 @@ export const AsideRight = async () => {
             educational purposes. Therefore, its commercialization and
             distribution are strictly prohibited.
           </p>
-          <p>
-            <strong> Talk to our import expert </strong>
-          </p>
+          <p className="text-xl font-bold">Talk to our import expert</p>
           <p>
             If you need to speak with a specialist in importing and exporting
             goods to Mexico, you can contact our expert. Schedule a meeting
             using the following link.
           </p>
           <a
-            className="w-11/12 block text-center py-2 rounded-md font-semibold border border-[#8B42FF] bg-[#8B42FF] hover:bg-transparent text-white hover:text-[#8B42FF] transition"
-            href="https://calendly.com/joaquintally/30min?month=2025-01"
+            className="w-11/12 block text-center py-2 rounded-md font-semibold border border-indigo-800/80 bg-indigo-800/80 hover:bg-transparent text-white hover:text-indigo-800/80 transition"
+            href="/#"
             target="_blank"
             rel="noopener noreferrer"
           >
