@@ -4,6 +4,8 @@ from src.models import Users, ExcelInformation
 from openpyxl.styles import Border, Side
 from io import BytesIO
 import pandas as pd
+import requests
+import os
 
 
 
@@ -80,3 +82,73 @@ def generate_excel(user_email, db: Session):
 
     output.seek(0)
     return output
+
+
+def get_data(search_text: str, noms: list, cofepris: str):
+    data_dict = {
+        "NOMs": noms,
+        "COFEPRIS": cofepris,
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+    }
+
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You will give me a dict with the following keys: Nombre del Producto, HS Code, Origen del País, Impuestos IGI (Tasa Máxima), Impuestos IGI (Reducciones aplicables), IVA (%), DTA (%) and the values you will find in the search text. Please write the dict in the following format: {'Nombre del Producto': 'value', 'HS Code': 'value', 'Origen del País': 'value', 'Impuestos IGI (Tasa Máxima)': 'value', 'Impuestos IGI (Reducciones aplicables)': 'value', 'IVA (%)': 'value', 'DTA (%)': 'value'} and write the values in the search_text language if it is in english, write the values in english if it is in spanish write the values in spanish.",
+                    },
+                    {
+                        "type": "text",
+                        "text": search_text,
+                    },
+                ],
+            }
+        ],
+        "max_tokens": 300,
+    }
+
+    response = requests.post(
+        "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+    )
+
+    
+    data = response.json()
+
+   
+    agent_response = eval((data['choices'][0]['message']['content']).replace("```", "").replace("python", ""))
+
+    
+    data_dict.update(agent_response)
+
+    return data_dict
+
+
+def save_data_into_db(user_email, data:dict, db: Session):
+    user_record = db.query(Users).filter(Users.email == user_email).first()
+    if not user_record:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    excel_data = ExcelInformation(
+        user_id=user_record.id,
+        product_name=data["Nombre del Producto"],
+        hs_code=data["HS Code"],
+        from_country=data["Origen del País"],
+        igi_max=data["Impuestos IGI (Tasa Máxima)"],
+        igi_reductions=data["Impuestos IGI (Reducciones aplicables)"],
+        iva=data["IVA (%)"],
+        dta=data["DTA (%)"],
+        noms=data["NOMs"],
+        cofepris=data["COFEPRIS"],
+    )
+
+    db.add(excel_data)
+
+    db.commit()
