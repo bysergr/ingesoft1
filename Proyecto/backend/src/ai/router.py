@@ -14,16 +14,30 @@ Dependencies:
 - GoogleLogin schema for user authentication.
 '''
 
+
+import uuid
+import codecs
+import os
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
-from src.ai.schemas import GoogleLogin
+from src.ai.schemas import GoogleLogin, AskAgent
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+
+from langchain_core.messages import HumanMessage, SystemMessage
+from src.ai.constants.en import *
+from src.ai.constants.es import *
+from langgraph.graph import START, MessagesState, StateGraph
+
 
 
 from src.database import get_db
 from src.models import Users, Messages
-from src.ai.crud import generate_excel
-
+from src.ai.crud import *
+from src.ai.utils.detect_language import detect_language
 
 
 ai_router = APIRouter()
@@ -130,3 +144,140 @@ def get_excel(user_email: str, db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment;filename=products.xlsx"}
     )
+
+
+@ai_router.post("/importation-bot/")
+async def ask_agent(user_prompt: AskAgent, db: Session = Depends(get_db)):
+    try:
+        prompt = codecs.decode(user_prompt.prompt, "unicode_escape")
+        language = detect_language(prompt)
+
+        agent_objective = (
+            "Agent's objective:" if language == "en" else "Objetivo del agente:"
+        )
+        agent_context = (
+            "Agent's context:" if language == "en" else "Contexto del agente:"
+        )
+        agent_task = "Agent's task:" if language == "en" else "Tarea del agente:"
+        agent_output = "Agent's output:" if language == "en" else "Salida del agente:"
+        task_text = "Task requested:" if language == "en" else "Tarea solicitada:"
+
+        initial_context = (
+            f"{EN_NAURAT_AGENT_ROLE if language == 'en' else NAURAT_AGENT_ROLE}\n\n"
+            f"{agent_objective}\n{EN_NAURAT_AGENT_GOAL if language == 'en' else NAURAT_AGENT_GOAL}\n\n"
+            f"{agent_context}\n{EN_NAURAT_AGENT_BACKSTORY if language == 'en' else NAURAT_AGENT_BACKSTORY}"
+            f"{agent_task}\n{EN_NAURAT_TASK_DESCRIPTION if language == 'en' else NAURAT_TASK_DESCRIPTION}"
+            f"{agent_output}\n{EN_NAURAT_TASK_EXPECTED_OUTPUT if language == 'en' else NAURAT_TASK_EXPECTED_OUTPUT} "
+        )
+
+       
+        workflow = StateGraph(state_schema=MessagesState)
+        model = ChatOpenAI(
+            model="chatgpt-4o-latest",
+            temperature=1,
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
+
+       
+        def call_model(state: MessagesState):
+            response = model.invoke(state["messages"])
+            return {"messages": response}
+
+        workflow.add_edge(START, "model")
+        workflow.add_node("model", call_model)
+
+        # Configurar el almacenamiento en memoria
+        memory = MemorySaver()
+        app = workflow.compile(checkpointer=memory)
+
+        # Generar ID único para el hilo de conversación
+        thread_id = uuid.uuid4()
+
+        if user_prompt.user_email:
+            user = db.query(Users).filter(Users.email == user_prompt.user_email).first()
+        else:
+            user = (
+                db.query(Users).filter(Users.private_id == user_prompt.user_id).first()
+            )
+
+        if not user:
+            if user_prompt.user_id:
+                user = Users(private_id=user_prompt.user_id)
+                db.add(user)
+                db.commit()
+
+        all_messages = (
+            db.query(Messages)
+            .filter(Messages.user_id == user.id)
+            .order_by(Messages.created_at.asc())
+            .all()
+        )
+
+        conversation_list = []
+        for message in all_messages:
+            conversation_list.append(message.message)
+
+        conversation_history = "\n".join(
+            [
+                f"{msg['owner'].capitalize()}: {msg['message']}"
+                for msg in conversation_list
+            ]
+        )
+
+        input_message = HumanMessage(
+            content=f"{initial_context}\n\n{conversation_history}\nHuman: {prompt}\nAi:"
+        )
+
+        config = {"configurable": {"thread_id": thread_id}}
+        result_messages = []
+
+        for event in app.stream(
+            {"messages": [SystemMessage(content=initial_context), input_message]},
+            config,
+            stream_mode="values",
+        ):
+            result_messages.append(event["messages"][-1].content)
+
+        response = result_messages[-1]
+
+        noms_in_response = re.findall(r"NOM-\d{3}-[A-Z]+-\d{4}", response)
+
+        answer_product_es = re.search(r"Información\s+de\s+importación\s+para", response)
+
+        answer_product_en = re.search(r"Import\s+information\s+for", response)
+
+        if answer_product_es or answer_product_en:
+
+            noms_result = re.findall(r"NOM-\d{3}-SCFI-\d{4}\s+\(.*?\)", response, re.IGNORECASE)
+
+
+            cofepris_result = "Aplica" if "COFEPRIS" in response else "No Aplica"
+
+
+            save_data_into_db( user_email=user_prompt.user_email,data=get_data(response, noms_result if noms_result else "", cofepris_result), db=db)
+
+        new_human_message = Messages(
+            user_id=user.id,
+            message={"owner": "human", "message": user_prompt.prompt, "lang": language},
+        )
+        db.add(new_human_message)
+
+        new_ai_message = Messages(
+            user_id=user.id,
+            message={
+                "owner": "ai",
+                "message": response,
+                "lang": language,
+                "noms": noms_in_response,
+            },
+        )
+        db.add(new_ai_message)
+        db.commit()
+
+        return JSONResponse(
+            content={"message": response, "noms": noms_in_response, "lang": language},
+            status_code=200,
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
