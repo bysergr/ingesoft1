@@ -2,24 +2,13 @@ import io
 import re
 import pytest
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-# IMPORTACIONES DE LA APLICACIÓN
-# Se asume que el código de las rutas se encuentra en, por ejemplo, "src/ai/routes.py"
 from src.ai.router import ai_router, StateGraph
 from src.database import get_db
-from src.models import Users, Messages
 import src.ai.crud as crud
 import src.ai.utils.detect_language as detect_mod
-
-# =============================================================================
-# Clases "fake" para simular el comportamiento de la base de datos y algunas
-# funcionalidades de SQLAlchemy, de modo que las pruebas sean aisladas.
-# =============================================================================
-
-# Se crea un "fake" para simular columnas de un modelo (para que la comparación
-# Users.email == email retorne una función que se pueda aplicar a cada instancia).
 
 
 class FakeColumn:
@@ -27,23 +16,17 @@ class FakeColumn:
         self.name = name
 
     def __eq__(self, other):
-        # Devuelve una función que, dada una instancia, verifica si el atributo
-        # coincide con el valor esperado.
         return lambda instance: getattr(instance, self.name) == other
-
-# Simulamos un modelo mínimo para el usuario (similar a lo que se espera en Users)
 
 
 class FakeUser:
-    email = FakeColumn('email')
-    private_id = FakeColumn('private_id')
+    email = FakeColumn("email")
+    private_id = FakeColumn("private_id")
 
     def __init__(self, email=None, private_id=None):
         self.email = email
         self.private_id = private_id
-        self.id = None  # Se asignará al agregarse a la sesión
-
-# Simulamos un modelo mínimo para un mensaje
+        self.id = None
 
 
 class FakeMessage:
@@ -51,8 +34,6 @@ class FakeMessage:
         self.user_id = user_id
         self.message = message
         self.created_at = created_at or datetime.now()
-
-# Una clase fake para simular el resultado de una consulta (query) de SQLAlchemy.
 
 
 class FakeQuery:
@@ -73,8 +54,6 @@ class FakeQuery:
     def all(self):
         return self.items
 
-# Una sesión fake para la base de datos que almacena usuarios y mensajes en memoria.
-
 
 class FakeDBSession:
     def __init__(self):
@@ -90,18 +69,17 @@ class FakeDBSession:
         return FakeQuery([])
 
     def add(self, obj):
-        # Si es un usuario, se asigna un id y se almacena
         if hasattr(obj, "email"):
             if not getattr(obj, "id", None):
                 obj.id = self._id_counter
                 self._id_counter += 1
             self.users.append(obj)
-        # Si es un mensaje, se almacena en la lista de mensajes
         elif hasattr(obj, "user_id"):
             self.messages.append(obj)
 
     def commit(self):
         pass
+
 
 # =============================================================================
 # Configuración de la aplicación y sobreescritura de dependencias
@@ -113,24 +91,16 @@ app = FastAPI()
 app.include_router(ai_router)
 client = TestClient(app)
 
+
 # Fixture que provee una sesión fake para la base de datos
 
 
 @pytest.fixture
 def fake_db():
     db = FakeDBSession()
-    # Sobrescribimos la dependencia get_db para que retorne nuestra sesión fake
     app.dependency_overrides[get_db] = lambda: db
     yield db
-    # Al finalizar, se puede restablecer la dependencia (opcional)
     app.dependency_overrides[get_db] = lambda: FakeDBSession()
-
-# =============================================================================
-# Sobrescritura de funciones externas para que las pruebas sean predecibles
-# =============================================================================
-
-# Para el endpoint /get_excel/ se sobrescribe generate_excel para que retorne
-# un buffer de BytesIO con contenido simulado.
 
 
 def fake_generate_excel(user_email, db):
@@ -138,9 +108,6 @@ def fake_generate_excel(user_email, db):
 
 
 crud.generate_excel = fake_generate_excel
-
-# Para el endpoint ask_agent se sobrescribe el método compile de StateGraph para
-# que retorne un objeto con un método stream que simula una respuesta de la IA.
 
 
 class DummyMessage:
@@ -150,7 +117,6 @@ class DummyMessage:
 
 class FakeStreamApp:
     def stream(self, payload, config, stream_mode):
-        # Se retorna un único evento con un mensaje simulado
         yield {"messages": [DummyMessage("Test AI response NOM-001-SCFI-2023 (dummy)")]}
 
 
@@ -175,6 +141,7 @@ def test_google_login(fake_db):
     assert response.status_code == 200
     assert response.json()["message"] == "User logged in successfully"
 
+
 # --- 2. Pruebas para el endpoint GET /bot_conversation/{user_email} ---
 
 # Caso cuando el usuario no existe (se espera error 404)
@@ -184,25 +151,31 @@ def test_bot_conversation_no_user(fake_db):
     response = client.get("/bot_conversation/nonexistent@example.com")
     assert response.status_code == 404
 
+
 # Caso con usuario existente y mensajes previos
 
 
 def test_bot_conversation_with_messages(fake_db):
-    # Creamos un usuario fake y lo agregamos a la sesión
     user = FakeUser(email="test@example.com")
     fake_db.add(user)
-    # Agregamos dos mensajes simulados (por ejemplo, uno de "human" y otro de "ai")
-    message1 = FakeMessage(user_id=user.id, message={
-                           "owner": "human", "message": "Hola", "lang": "en"})
-    message2 = FakeMessage(user_id=user.id, message={
-                           "owner": "ai", "message": "Hola, ¿en qué puedo ayudarte?", "lang": "en"})
+    message1 = FakeMessage(
+        user_id=user.id, message={"owner": "human", "message": "Hola", "lang": "en"}
+    )
+    message2 = FakeMessage(
+        user_id=user.id,
+        message={
+            "owner": "ai",
+            "message": "Hola, ¿en qué puedo ayudarte?",
+            "lang": "en",
+        },
+    )
     fake_db.messages.extend([message1, message2])
     response = client.get("/bot_conversation/test@example.com")
     assert response.status_code == 200
     data = response.json()
-    # Se verifica que la respuesta contenga la lista de mensajes
     assert "conversation" in data
     assert data["conversation"] == [message1.message, message2.message]
+
 
 # --- 3. Pruebas para el endpoint GET /get_excel/ ---
 
@@ -213,6 +186,7 @@ def test_get_excel_no_user(fake_db):
     response = client.get("/get_excel/?user_email=nonexistent@example.com")
     assert response.status_code == 404
 
+
 # Caso con usuario existente: se verifica que se retorna el Excel simulado
 
 
@@ -221,11 +195,11 @@ def test_get_excel_success(fake_db):
     fake_db.add(user)
     response = client.get("/get_excel/?user_email=test@example.com")
     assert response.status_code == 200
-    # Se comprueba que el header Content-Disposition incluya el nombre del archivo
     assert "attachment;filename=products.xlsx" in response.headers.get(
-        "content-disposition", "")
-    # Se verifica que el contenido del archivo incluya el texto simulado
+        "content-disposition", ""
+    )
     assert b"Contenido de Excel simulado" in response.content
+
 
 # --- 4. Prueba para el endpoint POST /importation-bot/ (ask_agent) ---
 
@@ -234,7 +208,7 @@ def test_ask_agent(fake_db):
     payload = {
         "prompt": "Test prompt",
         "user_email": "test@example.com",
-        "user_id": None
+        "user_id": None,
     }
     response = client.post("/importation-bot/", json=payload)
     assert response.status_code == 200
