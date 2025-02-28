@@ -28,8 +28,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from src.ai.constants.en import *
-from src.ai.constants.es import *
 from langgraph.graph import START, MessagesState, StateGraph
 
 
@@ -37,6 +35,8 @@ from langgraph.graph import START, MessagesState, StateGraph
 from src.database import get_db
 from src.models import Users, Messages
 from src.ai.crud import *
+from src.ai.constants.en import *
+from src.ai.constants.es import *
 from src.ai.utils.detect_language import detect_language
 
 
@@ -148,6 +148,31 @@ def get_excel(user_email: str, db: Session = Depends(get_db)):
 
 @ai_router.post("/importation-bot/")
 async def ask_agent(user_prompt: AskAgent, db: Session = Depends(get_db)):
+
+
+    """
+    Ask the AI agent a question or provide a prompt.
+
+    This endpoint receives a user prompt, detects the language of the input text,
+
+    and interacts with the AI agent to generate a response.
+
+    Args:
+        user_prompt (AskAgent): The user's prompt containing the input message or question.
+        db (Session, optional): The database session dependency.
+
+    Returns:
+
+        JSONResponse: A JSON response containing the AI agent's response.
+
+    Status Codes:
+
+        - 200: Successfully received and processed the user prompt.
+
+        - 400: Error occurred while processing the user prompt.
+
+    """
+
     try:
         prompt = codecs.decode(user_prompt.prompt, "unicode_escape")
         language = detect_language(prompt)
@@ -160,7 +185,6 @@ async def ask_agent(user_prompt: AskAgent, db: Session = Depends(get_db)):
         )
         agent_task = "Agent's task:" if language == "en" else "Tarea del agente:"
         agent_output = "Agent's output:" if language == "en" else "Salida del agente:"
-        task_text = "Task requested:" if language == "en" else "Tarea solicitada:"
 
         initial_context = (
             f"{EN_NAURAT_AGENT_ROLE if language == 'en' else NAURAT_AGENT_ROLE}\n\n"
@@ -186,11 +210,9 @@ async def ask_agent(user_prompt: AskAgent, db: Session = Depends(get_db)):
         workflow.add_edge(START, "model")
         workflow.add_node("model", call_model)
 
-        # Configurar el almacenamiento en memoria
         memory = MemorySaver()
         app = workflow.compile(checkpointer=memory)
 
-        # Generar ID único para el hilo de conversación
         thread_id = uuid.uuid4()
 
         if user_prompt.user_email:
