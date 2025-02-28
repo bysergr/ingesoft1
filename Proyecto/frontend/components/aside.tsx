@@ -31,7 +31,7 @@ export const AsideRight = async () => {
           </p>
           <a
             className="w-11/12 block text-center py-2 rounded-md font-semibold border border-indigo-800/80 bg-indigo-800/80 hover:bg-transparent text-white hover:text-indigo-800/80 transition"
-            href="/#"
+            href="https://calendly.com/sreym-unal/30min"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -73,10 +73,10 @@ export async function AsideLeft() {
             requirements. Log in first to download the list in Excel, including
             your selected products and details.
           </p>
-          {session && <button>Download Sheet</button>}
+          {session && <button className="w-11/12 block text-center py-2 rounded-md font-semibold border border-indigo-800/80 bg-indigo-800/80 hover:border-white hover:bg-transparent text-white transition">Download Sheet</button>}
         </div>
 
-        <div className="h-36 flex flex-col justify-center mt-12">
+        <div className="h-36 flex flex-col justify-center mt-24">
           {session ? (
             <div className="space-y-6">
               <Profile session={session} />
@@ -86,7 +86,7 @@ export async function AsideLeft() {
             <SignIn />
           )}
           <p className="text-xs text-neutral-300 mt-6 text-center">
-            Made with 🤍 by our software developer expert{" "}
+            Made with 🤍 by {" "}
             <a
               href="https://github.com/FabianEspitia-it"
               target="_blank"
@@ -94,8 +94,31 @@ export async function AsideLeft() {
               className="underline text-white"
             >
               Fabian Espitia
-            </a>
-            .
+            </a>, {" "}
+            <a
+              href="https://github.com/bysergr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-white"
+            >
+              Sergio Rey
+            </a>, {" "}
+            <a
+              href="https://github.com/Julian-Pira18"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-white"
+            >
+              Julian Pira
+            </a> and {" "}
+            <a
+              href="https://github.com/javiermartinezgi01"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-white"
+            >
+              Javier Esteban
+            </a>.
           </p>
         </div>
       </div>
