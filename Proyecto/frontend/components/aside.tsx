@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { SignIn } from "@/components/auth/sign-in";
 import { Profile } from "@/components/auth/profile";
 import { SignOut } from "@/components/auth/sign-out";
+import { ButtonSendSheet as ButtonDownloadSheet } from "./chat/buttons";
 
 export const AsideRight = async () => {
   return (
@@ -47,6 +48,8 @@ export const AsideRight = async () => {
 export async function AsideLeft() {
   const session = await auth();
 
+  const email = session?.user?.email;
+
   return (
     <aside className="px-6 w-[262px] text-white bg-black flex-shrink-0 flex-grow-0 h-full hidden md:flex flex-col justify-around border-r-neutral-600 border-r">
       <div className="w-full">
@@ -73,7 +76,9 @@ export async function AsideLeft() {
             requirements. Log in first to download the list in Excel, including
             your selected products and details.
           </p>
-          {session && <button className="w-11/12 block text-center py-2 rounded-md font-semibold border border-indigo-800/80 bg-indigo-800/80 hover:border-white hover:bg-transparent text-white transition">Download Sheet</button>}
+          {session && (
+            <ButtonDownloadSheet email={email} name={session.user?.name} />
+          )}
         </div>
 
         <div className="h-36 flex flex-col justify-center mt-24">
@@ -86,7 +91,7 @@ export async function AsideLeft() {
             <SignIn />
           )}
           <p className="text-xs text-neutral-300 mt-6 text-center">
-            Made with 🤍 by {" "}
+            Made with 🤍 by{" "}
             <a
               href="https://github.com/FabianEspitia-it"
               target="_blank"
@@ -94,7 +99,8 @@ export async function AsideLeft() {
               className="underline text-white"
             >
               Fabian Espitia
-            </a>, {" "}
+            </a>
+            ,{" "}
             <a
               href="https://github.com/bysergr"
               target="_blank"
@@ -102,7 +108,8 @@ export async function AsideLeft() {
               className="underline text-white"
             >
               Sergio Rey
-            </a>, {" "}
+            </a>
+            ,{" "}
             <a
               href="https://github.com/Julian-Pira18"
               target="_blank"
@@ -110,7 +117,8 @@ export async function AsideLeft() {
               className="underline text-white"
             >
               Julian Pira
-            </a> and {" "}
+            </a>{" "}
+            and{" "}
             <a
               href="https://github.com/javiermartinezgi01"
               target="_blank"
@@ -118,7 +126,8 @@ export async function AsideLeft() {
               className="underline text-white"
             >
               Javier Esteban
-            </a>.
+            </a>
+            .
           </p>
         </div>
       </div>
