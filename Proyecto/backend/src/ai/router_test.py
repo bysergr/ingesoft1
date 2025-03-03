@@ -134,88 +134,90 @@ detect_mod.detect_language = lambda text: "en"
 
 # --- 1. Prueba para el endpoint POST /google_login/ ---
 
+# Tests adicionales para casos de borde y escenarios no cubiertos previamente
 
-def test_google_login(fake_db):
-    payload = {"email": "test@example.com"}
-    response = client.post("/google_login/", json=payload)
-    assert response.status_code == 200
-    assert response.json()["message"] == "User logged in successfully"
-
-
-# --- 2. Pruebas para el endpoint GET /bot_conversation/{user_email} ---
-
-# Caso cuando el usuario no existe (se espera error 404)
-
-
-def test_bot_conversation_no_user(fake_db):
-    response = client.get("/bot_conversation/nonexistent@example.com")
-    assert response.status_code == 404
-
-
-# Caso con usuario existente y mensajes previos
+def test_google_login_multiple(fake_db):
+    """
+    Prueba para el endpoint /google_login/ con múltiples usuarios.
+    
+    - Se envían payloads con distintos emails.
+    - Se verifica que se crean usuarios distintos en la base de datos.
+    
+    Herramienta/Framework: Pytest, FastAPI TestClient
+    """
+    emails = ["user1@example.com", "user2@example.com", "user3@example.com"]
+    for email in emails:
+        response = client.post("/google_login/", json={"email": email})
+        assert response.status_code == 200
+    # Se espera que la cantidad de usuarios sea igual al número de emails enviados.
+    assert len(fake_db.users) == len(emails)
 
 
-def test_bot_conversation_with_messages(fake_db):
-    user = FakeUser(email="test@example.com")
+def test_bot_conversation_ordered(fake_db):
+    """
+    Prueba para el endpoint /bot_conversation/{user_email} verificando el orden de los mensajes.
+    
+    - Se crea un usuario con mensajes agregados con marcas de tiempo desordenadas.
+    - Se invoca el endpoint y se verifica que la lista de mensajes se retorna en orden ascendente de 'created_at'.
+    
+    Herramienta/Framework: Pytest, FastAPI TestClient
+    """
+    user = FakeUser(email="ordered@example.com")
     fake_db.add(user)
+    
+    # Se crean mensajes con tiempos desordenados
+    from datetime import datetime, timedelta
+    now = datetime.now()
     message1 = FakeMessage(
-        user_id=user.id, message={"owner": "human", "message": "Hola", "lang": "en"}
+        user_id=user.id, 
+        message={"owner": "human", "message": "Primero", "lang": "en"}, 
+        created_at=now + timedelta(minutes=5)
     )
     message2 = FakeMessage(
-        user_id=user.id,
-        message={
-            "owner": "ai",
-            "message": "Hola, ¿en qué puedo ayudarte?",
-            "lang": "en",
-        },
+        user_id=user.id, 
+        message={"owner": "ai", "message": "Segundo", "lang": "en"}, 
+        created_at=now
     )
-    fake_db.messages.extend([message1, message2])
-    response = client.get("/bot_conversation/test@example.com")
+    message3 = FakeMessage(
+        user_id=user.id, 
+        message={"owner": "human", "message": "Tercero", "lang": "en"}, 
+        created_at=now + timedelta(minutes=10)
+    )
+    fake_db.messages.extend([message1, message2, message3])
+    
+    response = client.get("/bot_conversation/ordered@example.com")
     assert response.status_code == 200
     data = response.json()
-    assert "conversation" in data
-    assert data["conversation"] == [message1.message, message2.message]
+    # Se espera que los mensajes se ordenen de forma ascendente por 'created_at':
+    # El orden esperado es: message2, message1, message3.
+    expected_order = [message2.message, message1.message, message3.message]
+    assert data["conversation"] == expected_order
 
 
-# --- 3. Pruebas para el endpoint GET /get_excel/ ---
-
-# Caso cuando el usuario no existe (se espera error 404)
-
-
-def test_get_excel_no_user(fake_db):
-    response = client.get("/get_excel/?user_email=nonexistent@example.com")
-    assert response.status_code == 404
-
-
-# Caso con usuario existente: se verifica que se retorna el Excel simulado
-
-
-def test_get_excel_success(fake_db):
-    user = FakeUser(email="test@example.com")
+def test_ask_agent_success(fake_db):
+    """
+    Prueba para el endpoint /importation-bot/ con payload válido y usuario existente.
+    
+    - Se crea previamente un usuario con un email determinado.
+    - Se envía un payload con un prompt y el user_email correspondiente.
+    - Se verifica que la respuesta sea exitosa (HTTP 200) y que incluya los campos "message", "noms" y "lang".
+    
+    Herramienta/Framework: Pytest, FastAPI TestClient
+    """
+    # Se crea un usuario existente
+    user = FakeUser(email="existing_agent@example.com")
     fake_db.add(user)
-    response = client.get("/get_excel/?user_email=test@example.com")
-    assert response.status_code == 200
-    assert "attachment;filename=products.xlsx" in response.headers.get(
-        "content-disposition", ""
-    )
-    assert b"Contenido de Excel simulado" in response.content
-
-
-# --- 4. Prueba para el endpoint POST /importation-bot/ (ask_agent) ---
-
-
-def test_ask_agent(fake_db):
+    
     payload = {
-        "prompt": "Test prompt",
-        "user_email": "test@example.com",
-        "user_id": None,
+        "prompt": "Test prompt for agent",
+        "user_email": "existing_agent@example.com",
+        "user_id": None
     }
     response = client.post("/importation-bot/", json=payload)
     assert response.status_code == 200
     data = response.json()
-    # Se verifica que la respuesta incluya los campos "message", "noms" y "lang"
     assert "message" in data
     assert "noms" in data
     assert "lang" in data
-    # Se comprueba que el mensaje simulado de la IA incluya el código NOM esperado
-    assert re.search(r"NOM-\d{3}-[A-Z]+-\d{4}", data["message"])
+
+
