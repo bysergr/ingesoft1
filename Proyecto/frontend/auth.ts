@@ -17,7 +17,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account?.provider === "google") {
         try {
           await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai/google_login`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai/google-login/`,
             {
               method: "POST",
               headers: {
