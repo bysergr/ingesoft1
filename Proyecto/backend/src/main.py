@@ -49,14 +49,12 @@ app.include_router(ai_router, prefix="/ai", tags=["ai"])
 
 @app.get("/")
 def read_root():
-
     """
     Root endpoint of the API.
 
     Returns:
         dict: A welcome message with the key "Hello" and the value "Ingesoft Class".
     """
-
 
     return {"Hello": "Ingesoft Class"}
 
