@@ -85,9 +85,6 @@ app.include_router(ai_router)
 client = TestClient(app)
 
 
-
-
-
 @pytest.fixture
 def fake_db():
     db = FakeDBSession()
@@ -120,9 +117,6 @@ crud.save_data_into_db = lambda user_email, data, db: None
 
 
 detect_mod.detect_language = lambda text: "en"
-
-
-
 
 def test_google_login():
     payload = {"email": "test@example.com"}
