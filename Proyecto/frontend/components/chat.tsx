@@ -139,7 +139,7 @@ export const Chat = ({ email, name }: { email?: string; name?: string }) => {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai/importation/`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai/importation-bot/`,
         {
           method: "POST",
           headers: {
