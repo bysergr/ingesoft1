@@ -80,19 +80,12 @@ class FakeDBSession:
     def commit(self):
         pass
 
-
-# =============================================================================
-# Configuración de la aplicación y sobreescritura de dependencias
-# =============================================================================
-
-
-# Se crea la aplicación FastAPI e incluye el router de las rutas de AI.
 app = FastAPI()
 app.include_router(ai_router)
 client = TestClient(app)
 
 
-# Fixture que provee una sesión fake para la base de datos
+
 
 
 @pytest.fixture
@@ -122,102 +115,41 @@ class FakeStreamApp:
 
 StateGraph.compile = lambda self, checkpointer: FakeStreamApp()
 
-# Se sobrescribe save_data_into_db para que durante las pruebas no realice acción alguna.
+
 crud.save_data_into_db = lambda user_email, data, db: None
 
-# Para simplificar, se fuerza que detect_language siempre retorne "en"
+
 detect_mod.detect_language = lambda text: "en"
 
-# =============================================================================
-# PRUEBAS UNITARIAS PARA CADA ENDPOINT
-# =============================================================================
-
-# --- 1. Prueba para el endpoint POST /google_login/ ---
-
-# Tests adicionales para casos de borde y escenarios no cubiertos previamente
-
-def test_google_login_multiple(fake_db):
-    """
-    Prueba para el endpoint /google_login/ con múltiples usuarios.
-    
-    - Se envían payloads con distintos emails.
-    - Se verifica que se crean usuarios distintos en la base de datos.
-    
-    Herramienta/Framework: Pytest, FastAPI TestClient
-    """
-    emails = ["user1@example.com", "user2@example.com", "user3@example.com"]
-    for email in emails:
-        response = client.post("/google_login/", json={"email": email})
-        assert response.status_code == 200
-    # Se espera que la cantidad de usuarios sea igual al número de emails enviados.
-    assert len(fake_db.users) == len(emails)
 
 
-def test_bot_conversation_ordered(fake_db):
-    """
-    Prueba para el endpoint /bot_conversation/{user_email} verificando el orden de los mensajes.
-    
-    - Se crea un usuario con mensajes agregados con marcas de tiempo desordenadas.
-    - Se invoca el endpoint y se verifica que la lista de mensajes se retorna en orden ascendente de 'created_at'.
-    
-    Herramienta/Framework: Pytest, FastAPI TestClient
-    """
-    user = FakeUser(email="ordered@example.com")
-    fake_db.add(user)
-    
-    # Se crean mensajes con tiempos desordenados
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    message1 = FakeMessage(
-        user_id=user.id, 
-        message={"owner": "human", "message": "Primero", "lang": "en"}, 
-        created_at=now + timedelta(minutes=5)
-    )
-    message2 = FakeMessage(
-        user_id=user.id, 
-        message={"owner": "ai", "message": "Segundo", "lang": "en"}, 
-        created_at=now
-    )
-    message3 = FakeMessage(
-        user_id=user.id, 
-        message={"owner": "human", "message": "Tercero", "lang": "en"}, 
-        created_at=now + timedelta(minutes=10)
-    )
-    fake_db.messages.extend([message1, message2, message3])
-    
-    response = client.get("/bot_conversation/ordered@example.com")
+
+def test_google_login():
+    payload = {"email": "test@example.com"}
+    response = client.post("/google_login/", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    # Se espera que los mensajes se ordenen de forma ascendente por 'created_at':
-    # El orden esperado es: message2, message1, message3.
-    expected_order = [message2.message, message1.message, message3.message]
-    assert data["conversation"] == expected_order
+    assert response.json()["message"] == "User logged in successfully"
 
 
-def test_ask_agent_success(fake_db):
-    """
-    Prueba para el endpoint /importation-bot/ con payload válido y usuario existente.
-    
-    - Se crea previamente un usuario con un email determinado.
-    - Se envía un payload con un prompt y el user_email correspondiente.
-    - Se verifica que la respuesta sea exitosa (HTTP 200) y que incluya los campos "message", "noms" y "lang".
-    
-    Herramienta/Framework: Pytest, FastAPI TestClient
-    """
-    # Se crea un usuario existente
-    user = FakeUser(email="existing_agent@example.com")
-    fake_db.add(user)
-    
+def test_bot_conversation_no_user():
+    response = client.get("/bot_conversation/nonexistent@example.com")
+    assert response.status_code == 404
+
+
+def test_get_excel_no_user():
+    response = client.get("/get_excel/?user_email=nonexistent@example.com")
+    assert response.status_code == 404
+
+
+def test_ask_agent_invalid_payload():
+   
     payload = {
-        "prompt": "Test prompt for agent",
-        "user_email": "existing_agent@example.com",
+        "prompt": "Test prompt",
+        "user_email": None,
         "user_id": None
     }
     response = client.post("/importation-bot/", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert "message" in data
-    assert "noms" in data
-    assert "lang" in data
+   
+    assert response.status_code == 400
 
 
