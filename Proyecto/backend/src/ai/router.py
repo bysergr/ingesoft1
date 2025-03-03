@@ -43,7 +43,7 @@ from src.ai.utils.detect_language import detect_language
 ai_router = APIRouter()
 
 
-@ai_router.post("/google_login/")
+@ai_router.post("/google-login/")
 def google_login(user_data: GoogleLogin, db: Session = Depends(get_db)):
 
     '''
